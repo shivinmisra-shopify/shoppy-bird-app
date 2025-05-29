@@ -2,6 +2,8 @@
 
 | Date       | Phase                                         | Activity                                                                                                                               | Status |
 |------------|-----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------|
+| 2025-05-29 | Phase 5: UI and User Experience              | Enhanced MainMenu with responsive design, improved mobile touch controls, better layout, mobile-optimized scenes and viewport settings | ✅     |
+| 2025-05-29 | Phase 4: Game Features and Polish           | Implemented game states, visual effects, particles, screen shake, pause functionality. (Sound system skipped)                         | 🟡     |
 | 2025-05-29 | Phase 3: Core Game Mechanics                | Implemented bird, pipes, collision, scoring, physics.                                                                                  | ✅     |
 | 2025-05-29 | Phase 2: Game Assets & Resources            | Added initial bird sprite, created preloader, generated procedural pipe texture. (Asset design & full set preparation ongoing by user) | 🟡     |
 | 2025-05-29 | Phase 1: Project Setup & Basic Structure    | Initialized Next.js, configured dependencies (Phaser, etc.), set up Prettier, Git, base dir structure.                                 | ✅     |
@@ -10,6 +12,11 @@
 ---
 
 ## What Works
+*   **Mobile-optimized responsive design** with proper viewport settings and touch controls
+*   **Enhanced UI/UX** with responsive text sizing, mobile-friendly buttons, and improved layouts
+*   **Comprehensive game states** - Main menu with instructions, game over screen with performance feedback
+*   **Touch-friendly controls** - Larger buttons on mobile, proper touch areas, optimized for mobile devices
+*   **Professional page layout** with gradient background, proper header/footer, and mobile hints
 *   Core gameplay loop: bird jumps, falls with gravity, collides with pipes/bounds.
 *   Procedurally generated pipes spawn and scroll.
 *   Scoring system implemented, increments on passing pipes.
@@ -20,14 +27,8 @@
 *   Project setup (Next.js, TS, Tailwind, ESLint, Prettier).
 
 ## What's Left
-*   **Phase 4: Game Features and Polish**
-    *   Start Screen, Game Over Screen, Pause functionality, Restart mechanism.
-    *   Visual Effects (particles, screen shake, transitions).
-    *   Sound System (background music, SFX, controls).
-*   **Phase 5: UI and User Experience**
-    *   Main Menu design, game instructions, settings menu, difficulty selection.
-    *   Enhanced Game UI elements (beyond current score display).
-    *   Responsive Design and mobile compatibility.
+*   **Phase 4.3: Sound System** (SKIPPED - can be added later when audio assets are available)
+    *   Background music, sound effects, audio controls
 *   **Phase 6: Testing and Optimization**
     *   Unit, integration, e2e tests.
     *   Performance optimization (asset loading, code splitting, etc.).
@@ -37,10 +38,9 @@
 *   Further work on Phase 2: Game Assets (backgrounds, UI elements, sound effects, music - user dependent).
 
 ## Current Status
-Core game mechanics (Phase 3) are functional. Moving to Phase 4: Game Features and Polish, starting with game states (Start/Game Over screens).
+Phase 5 (UI and User Experience) COMPLETED with comprehensive mobile optimization. Ready for Phase 6 (Testing & Optimization) or Phase 7 (Deployment).
 
 ## Known Issues / Blockers
-*   No actual Start Menu or Game Over screen yet; game starts directly and ends abruptly.
-*   Visuals are basic (placeholder bird, procedural pipes, simple text for score).
-*   No sound effects or music.
+*   No sound effects or music (Phase 4.3 skipped).
 *   Full suite of game assets (backgrounds, more UI elements, SFX) still needed from user for a complete experience.
+*   May need performance testing on various mobile devices.

@@ -1,22 +1,25 @@
 import * as Phaser from 'phaser';
 import { PARTICLE_TEXTURE_KEY } from './PreloaderScene'; // Import the key
 
-const BIRD_JUMP_VELOCITY = -300;
-const GRAVITY_STRENGTH = 800;
+const BIRD_JUMP_VELOCITY = -320;
+const GRAVITY_STRENGTH = 700;
 const BIRD_FLAP_ANGLE = -20; // Angle in degrees when flapping
 const BIRD_DIVE_ANGLE = 90; // Max angle when diving
 const BIRD_ANGULAR_VELOCITY = 200; // Speed of rotation
 
 // Pipe constants
-const PIPE_TEXTURE_KEY = 'pipeTexture';
-const PIPE_WIDTH = 80; // Width of the pipe
-const PIPE_HEAD_HEIGHT = 30; // Height of the wider pipe head
+const PIPE_TOP_TEXTURE_KEY = 'pipeTopTexture';
+const PIPE_BOTTOM_TEXTURE_KEY = 'pipeBottomTexture';
+const PIPE_WIDTH = 80; // Width of the pipe body
+const PIPE_HEAD_HEIGHT = 45; // Height of the wider pipe head
+const PIPE_HEAD_WIDTH_MULTIPLIER = 1.5; // How much wider the head is than the body
 const PIPE_BODY_COLOR = 0x008000; // Green
 const PIPE_HIGHLIGHT_COLOR = 0x32cd32; // Lime green
 const PIPE_SHADOW_COLOR = 0x006400; // Dark green
-const PIPE_GAP_SIZE = 150; // Vertical gap between pipes
-const PIPE_SPAWN_INTERVAL = 1500; // Milliseconds between pipe spawns
-const PIPE_SCROLL_SPEED = -150; // Pixels per second
+const PIPE_DARK_SHADOW_COLOR = 0x004400; // Even darker green for depth
+const PIPE_GAP_SIZE = 250; // Vertical gap between pipes (increased from 200)
+const PIPE_SPAWN_INTERVAL = 2200; // Milliseconds between pipe spawns (increased from 1500)
+const PIPE_SCROLL_SPEED = -120; // Pixels per second (reduced from -150)
 const SCORE_ZONE_WIDTH = 5; // Width of the invisible scoring zone
 
 export class MainGameScene extends Phaser.Scene {
@@ -38,6 +41,10 @@ export class MainGameScene extends Phaser.Scene {
   private highScoreText!: Phaser.GameObjects.Text;
   private jumpParticles!: Phaser.GameObjects.Particles.ParticleEmitter;
 
+  // Cloud system
+  private clouds!: Phaser.GameObjects.Group;
+  private cloudSpawnTimer!: Phaser.Time.TimerEvent;
+
   constructor() {
     super({ key: 'MainGameScene' });
   }
@@ -46,29 +53,168 @@ export class MainGameScene extends Phaser.Scene {
     // Assets are already loaded by PreloaderScene
     // Generate the pipe texture
     this.createPipeTexture();
+    // Generate cloud textures
+    this.createCloudTextures();
     // Particle texture is loaded in PreloaderScene
   }
 
   createPipeTexture() {
+    // Generate the pipe texture
+    this.createTopPipeTexture();
+    this.createBottomPipeTexture();
+  }
+
+  createTopPipeTexture() {
+    // Top pipe has opening at the BOTTOM (pointing down into the gap)
     const gfx = this.make.graphics({ x: 0, y: 0 }, false);
     const textureHeight = Number(this.sys.game.config.height) || 600;
+    const headWidth = PIPE_WIDTH * PIPE_HEAD_WIDTH_MULTIPLIER;
+    const headOverhang = (headWidth - PIPE_WIDTH) / 2;
 
+    gfx.clear();
+
+    // === PIPE BODY (centered) ===
+    const bodyX = headOverhang; // Center the body under the head
     gfx.fillStyle(PIPE_BODY_COLOR);
-    gfx.fillRect(0, PIPE_HEAD_HEIGHT, PIPE_WIDTH, textureHeight);
+    gfx.fillRect(bodyX, 0, PIPE_WIDTH, textureHeight - PIPE_HEAD_HEIGHT);
 
-    gfx.fillStyle(PIPE_BODY_COLOR);
-    gfx.fillRect(- (PIPE_WIDTH * 0.1), 0, PIPE_WIDTH * 1.2, PIPE_HEAD_HEIGHT);
-
+    // Body left highlight
     gfx.fillStyle(PIPE_HIGHLIGHT_COLOR);
-    gfx.fillRect(- (PIPE_WIDTH * 0.1), 0, PIPE_WIDTH * 1.2, 5);
-    gfx.fillRect(0, PIPE_HEAD_HEIGHT, 5, textureHeight);
+    gfx.fillRect(bodyX, 0, 6, textureHeight - PIPE_HEAD_HEIGHT);
 
+    // Body right shadow
     gfx.fillStyle(PIPE_SHADOW_COLOR);
-    gfx.fillRect(- (PIPE_WIDTH * 0.1), PIPE_HEAD_HEIGHT - 5, PIPE_WIDTH * 1.2, 5);
-    gfx.fillRect(PIPE_WIDTH - 5, PIPE_HEAD_HEIGHT, 5, textureHeight);
+    gfx.fillRect(bodyX + PIPE_WIDTH - 6, 0, 6, textureHeight - PIPE_HEAD_HEIGHT);
 
-    gfx.generateTexture(PIPE_TEXTURE_KEY, PIPE_WIDTH, textureHeight);
+    // === PIPE HEAD (opening at bottom) ===
+    const headY = textureHeight - PIPE_HEAD_HEIGHT;
+
+    // Head main fill (full width, starts at x=0)
+    gfx.fillStyle(PIPE_BODY_COLOR);
+    gfx.fillRect(0, headY, headWidth, PIPE_HEAD_HEIGHT);
+
+    // Head left highlight (full height)
+    gfx.fillStyle(PIPE_HIGHLIGHT_COLOR);
+    gfx.fillRect(0, headY, 6, PIPE_HEAD_HEIGHT);
+
+    // Head right shadow (full height)
+    gfx.fillStyle(PIPE_SHADOW_COLOR);
+    gfx.fillRect(headWidth - 6, headY, 6, PIPE_HEAD_HEIGHT);
+
+    // Top edge of head (darker, creates the "lip")
+    gfx.fillStyle(PIPE_SHADOW_COLOR);
+    gfx.fillRect(0, headY, headWidth, 6);
+
+    // Bottom edge of head (bright opening edge)
+    gfx.fillStyle(PIPE_HIGHLIGHT_COLOR);
+    gfx.fillRect(0, textureHeight - 4, headWidth, 4);
+
+    // === INNER RIM (perfectly centered) ===
+    const rimInset = 6;
+    gfx.fillStyle(PIPE_DARK_SHADOW_COLOR);
+
+    // Inner rectangle (creates the depth illusion)
+    gfx.fillRect(
+      rimInset,
+      headY + rimInset,
+      headWidth - (rimInset * 2),
+      PIPE_HEAD_HEIGHT - (rimInset * 2)
+    );
+
+    gfx.generateTexture(PIPE_TOP_TEXTURE_KEY, Math.ceil(headWidth), textureHeight);
     gfx.destroy();
+  }
+
+  createBottomPipeTexture() {
+    // Bottom pipe has opening at the TOP (pointing up into the gap)
+    const gfx = this.make.graphics({ x: 0, y: 0 }, false);
+    const textureHeight = Number(this.sys.game.config.height) || 600;
+    const headWidth = PIPE_WIDTH * PIPE_HEAD_WIDTH_MULTIPLIER;
+    const headOverhang = (headWidth - PIPE_WIDTH) / 2;
+
+    gfx.clear();
+
+    // === PIPE HEAD (opening at top) ===
+    // Head main fill (full width, starts at x=0)
+    gfx.fillStyle(PIPE_BODY_COLOR);
+    gfx.fillRect(0, 0, headWidth, PIPE_HEAD_HEIGHT);
+
+    // Head left highlight (full height)
+    gfx.fillStyle(PIPE_HIGHLIGHT_COLOR);
+    gfx.fillRect(0, 0, 6, PIPE_HEAD_HEIGHT);
+
+    // Head right shadow (full height)
+    gfx.fillStyle(PIPE_SHADOW_COLOR);
+    gfx.fillRect(headWidth - 6, 0, 6, PIPE_HEAD_HEIGHT);
+
+    // Top edge of head (bright opening edge)
+    gfx.fillStyle(PIPE_HIGHLIGHT_COLOR);
+    gfx.fillRect(0, 0, headWidth, 4);
+
+    // Bottom edge of head (darker, creates the "lip")
+    gfx.fillStyle(PIPE_SHADOW_COLOR);
+    gfx.fillRect(0, PIPE_HEAD_HEIGHT - 6, headWidth, 6);
+
+    // === PIPE BODY (centered) ===
+    const bodyX = headOverhang; // Center the body under the head
+    gfx.fillStyle(PIPE_BODY_COLOR);
+    gfx.fillRect(bodyX, PIPE_HEAD_HEIGHT, PIPE_WIDTH, textureHeight - PIPE_HEAD_HEIGHT);
+
+    // Body left highlight
+    gfx.fillStyle(PIPE_HIGHLIGHT_COLOR);
+    gfx.fillRect(bodyX, PIPE_HEAD_HEIGHT, 6, textureHeight - PIPE_HEAD_HEIGHT);
+
+    // Body right shadow
+    gfx.fillStyle(PIPE_SHADOW_COLOR);
+    gfx.fillRect(bodyX + PIPE_WIDTH - 6, PIPE_HEAD_HEIGHT, 6, textureHeight - PIPE_HEAD_HEIGHT);
+
+    // === INNER RIM (perfectly centered) ===
+    const rimInset = 6;
+    gfx.fillStyle(PIPE_DARK_SHADOW_COLOR);
+
+    // Inner rectangle (creates the depth illusion)
+    gfx.fillRect(
+      rimInset,
+      rimInset,
+      headWidth - (rimInset * 2),
+      PIPE_HEAD_HEIGHT - (rimInset * 2)
+    );
+
+    gfx.generateTexture(PIPE_BOTTOM_TEXTURE_KEY, Math.ceil(headWidth), textureHeight);
+    gfx.destroy();
+  }
+
+  createCloudTextures() {
+    // Create multiple cloud variations
+    for (let i = 1; i <= 3; i++) {
+      const gfx = this.make.graphics({ x: 0, y: 0 }, false);
+      const cloudWidth = 60 + (i * 20);
+      const cloudHeight = 30 + (i * 10);
+
+      // Create fluffy cloud shape with multiple circles
+      gfx.fillStyle(0xffffff, 0.8); // White with some transparency
+
+      // Main cloud body
+      gfx.fillCircle(cloudWidth/2, cloudHeight/2, cloudHeight/2);
+
+      // Add fluffy bumps
+      gfx.fillCircle(cloudWidth * 0.3, cloudHeight/2, cloudHeight * 0.4);
+      gfx.fillCircle(cloudWidth * 0.7, cloudHeight/2, cloudHeight * 0.35);
+      gfx.fillCircle(cloudWidth * 0.2, cloudHeight * 0.3, cloudHeight * 0.25);
+      gfx.fillCircle(cloudWidth * 0.8, cloudHeight * 0.4, cloudHeight * 0.3);
+
+      // Add some variation to each cloud type
+      if (i === 2) {
+        gfx.fillCircle(cloudWidth * 0.5, cloudHeight * 0.2, cloudHeight * 0.2);
+      }
+      if (i === 3) {
+        gfx.fillCircle(cloudWidth * 0.15, cloudHeight * 0.6, cloudHeight * 0.2);
+        gfx.fillCircle(cloudWidth * 0.85, cloudHeight * 0.6, cloudHeight * 0.2);
+      }
+
+      gfx.generateTexture(`cloud${i}`, cloudWidth, cloudHeight);
+      gfx.destroy();
+    }
   }
 
   create() {
@@ -82,6 +228,18 @@ export class MainGameScene extends Phaser.Scene {
     const gameHeight = Number(gameConfig.height) || 600;
 
     this.cameras.main.setBackgroundColor('#70c5ce');
+
+    // Initialize cloud system
+    this.clouds = this.add.group();
+    this.spawnInitialClouds();
+
+    // Start cloud spawning timer
+    this.cloudSpawnTimer = this.time.addEvent({
+      delay: 8000, // Spawn a new cloud every 8 seconds
+      callback: this.addCloud,
+      callbackScope: this,
+      loop: true,
+    });
 
     // Start Shoppy lower and ensure physics body is reasonable
     this.shoppy = this.physics.add.sprite(gameWidth / 3, gameHeight * 0.6, 'shoppy'); // Start lower (60% down)
@@ -154,22 +312,31 @@ export class MainGameScene extends Phaser.Scene {
 
     // UI elements
     this.scoreText = this.add.text(gameWidth / 2, 50, 'Score: 0', {
-      fontSize: '32px', color: '#ffffff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 6
+      fontSize: `${Math.min(gameWidth * 0.05, 32)}px`, color: '#ffffff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 6
     }).setOrigin(0.5).setDepth(5);
 
     this.highScore = parseInt(localStorage.getItem('shoppyBirdHighScore') || '0');
     this.highScoreText = this.add.text(gameWidth - 20, 20, 'Best: ' + this.highScore, {
-      fontSize: '24px', color: '#ffffff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4
+      fontSize: `${Math.min(gameWidth * 0.03, 24)}px`, color: '#ffffff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4
     }).setOrigin(1, 0).setDepth(5);
 
     this.pauseText = this.add.text(gameWidth / 2, gameHeight / 2, 'Paused', {
-      fontSize: '48px', color: '#ffff00', fontStyle: 'bold', stroke: '#000000', strokeThickness: 6
+      fontSize: `${Math.min(gameWidth * 0.08, 48)}px`, color: '#ffff00', fontStyle: 'bold', stroke: '#000000', strokeThickness: 6
     }).setOrigin(0.5).setDepth(10).setVisible(false);
 
+    // Make pause button larger and more touch-friendly on mobile
+    const pauseButtonSize = Math.min(gameWidth * 0.025, 20);
+    const pauseButtonPadding = Math.max(gameWidth * 0.015, 10);
+
     this.pauseButton = this.add.text(20, 20, 'Pause', {
-        fontSize: '20px', color: '#ffffff', backgroundColor: '#808080',
-        padding: { x: 10, y: 5 }, fontStyle: 'bold'
+        fontSize: `${pauseButtonSize}px`, color: '#ffffff', backgroundColor: '#808080',
+        padding: { x: pauseButtonPadding, y: pauseButtonPadding * 0.6 }, fontStyle: 'bold'
     }).setOrigin(0,0).setDepth(5).setInteractive({ useHandCursor: true });
+
+    // Make pause button larger on mobile for easier touching
+    if (gameWidth < 600) {
+      this.pauseButton.setScale(1.3);
+    }
 
     this.pauseButton.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
         pointer.event.stopPropagation();
@@ -199,27 +366,82 @@ export class MainGameScene extends Phaser.Scene {
     });
   }
 
+  spawnInitialClouds() {
+    const gameWidth = Number(this.sys.game.config.width) || 800;
+    const gameHeight = Number(this.sys.game.config.height) || 600;
+
+    // Spawn 3-4 initial clouds across the screen
+    for (let i = 0; i < 4; i++) {
+      const x = (gameWidth / 4) * i + Phaser.Math.Between(0, gameWidth / 4);
+      const y = Phaser.Math.Between(50, gameHeight / 3);
+      this.createCloudSprite(x, y);
+    }
+  }
+
+  addCloud() {
+    if (this.isGameOver) return;
+
+    const gameWidth = Number(this.sys.game.config.width) || 800;
+    const gameHeight = Number(this.sys.game.config.height) || 600;
+
+    // Spawn cloud from the right side
+    const x = gameWidth + 100;
+    const y = Phaser.Math.Between(50, gameHeight / 3);
+    this.createCloudSprite(x, y);
+  }
+
+  createCloudSprite(x: number, y: number) {
+    // Randomly choose cloud type
+    const cloudType = Phaser.Math.Between(1, 3);
+    const cloud = this.add.image(x, y, `cloud${cloudType}`);
+
+    // Random scale for variety
+    const scale = Phaser.Math.FloatBetween(0.6, 1.2);
+    cloud.setScale(scale);
+
+    // Set depth to be behind everything except background
+    cloud.setDepth(-1);
+
+    // Add to clouds group
+    this.clouds.add(cloud);
+
+    // Set cloud movement speed (slower than pipes for parallax effect)
+    const cloudSpeed = Phaser.Math.Between(-30, -50); // Slower than pipes
+
+    // Add movement using tween for smooth animation
+    this.tweens.add({
+      targets: cloud,
+      x: -200, // Move off screen to the left
+      duration: Math.abs((x + 200) / cloudSpeed) * 1000, // Calculate duration based on distance and speed
+      ease: 'Linear',
+      onComplete: () => {
+        cloud.destroy(); // Remove cloud when it goes off screen
+      }
+    });
+  }
+
   addPipeRow() {
     if (this.isGameOver) return;
 
     const gameHeight = Number(this.sys.game.config.height) || 600;
     const gameWidth = Number(this.sys.game.config.width) || 800;
+    const headWidth = PIPE_WIDTH * PIPE_HEAD_WIDTH_MULTIPLIER;
 
     // Randomly determine the vertical position of the gap
     const gapCenterY = Phaser.Math.Between(PIPE_GAP_SIZE * 0.7, gameHeight - PIPE_GAP_SIZE * 0.7);
 
-    const pipeX = gameWidth + PIPE_WIDTH / 2;
+    const pipeX = gameWidth + headWidth / 2; // Adjust spawn position for wider head
 
     // Top pipe
     const topPipeY = gapCenterY - PIPE_GAP_SIZE / 2;
-    const topPipe: Phaser.Physics.Arcade.Sprite = this.pipes.get(pipeX, topPipeY, PIPE_TEXTURE_KEY);
+    const topPipe: Phaser.Physics.Arcade.Sprite = this.pipes.get(pipeX, topPipeY, PIPE_TOP_TEXTURE_KEY);
     topPipe.setActive(true).setVisible(true).setOrigin(0.5, 1).setVelocityX(PIPE_SCROLL_SPEED);
     if (topPipe.body) (topPipe.body as Phaser.Physics.Arcade.Body).updateFromGameObject();
     else this.physics.world.enable(topPipe); // Should be enabled by group, but as fallback
 
     // Bottom pipe
     const bottomPipeY = gapCenterY + PIPE_GAP_SIZE / 2;
-    const bottomPipe: Phaser.Physics.Arcade.Sprite = this.pipes.get(pipeX, bottomPipeY, PIPE_TEXTURE_KEY);
+    const bottomPipe: Phaser.Physics.Arcade.Sprite = this.pipes.get(pipeX, bottomPipeY, PIPE_BOTTOM_TEXTURE_KEY);
     bottomPipe.setActive(true).setVisible(true).setOrigin(0.5, 0).setVelocityX(PIPE_SCROLL_SPEED);
     if (bottomPipe.body) (bottomPipe.body as Phaser.Physics.Arcade.Body).updateFromGameObject();
     else this.physics.world.enable(bottomPipe); // Should be enabled by group, but as fallback
@@ -254,6 +476,7 @@ export class MainGameScene extends Phaser.Scene {
     this.physics.pause();
     this.shoppy.setTint(0xff0000);
     this.pipeSpawnTimer.remove(false);
+    this.cloudSpawnTimer.remove(false);
 
     if (this.score > this.highScore) {
       this.highScore = this.score;
@@ -280,11 +503,23 @@ export class MainGameScene extends Phaser.Scene {
 
       this.physics.pause();
       this.pipeSpawnTimer.paused = true;
+      this.cloudSpawnTimer.paused = true;
       if (this.shoppy && this.shoppy.anims) this.shoppy.anims.pause();
     } else {
       this.isPaused = false;
       this.isAttemptingPause = false;
-      this.togglePause();
+      this.pauseButton.setText('Pause');
+      this.pauseText.setVisible(false);
+      console.log('Resuming game...');
+
+      if (this.shoppy && this.shoppy.body) {
+        (this.shoppy.body as Phaser.Physics.Arcade.Body).enable = true;
+      }
+
+      this.physics.resume();
+      this.pipeSpawnTimer.paused = false;
+      this.cloudSpawnTimer.paused = false;
+      if (this.shoppy && this.shoppy.anims) this.shoppy.anims.resume();
     }
   }
 
@@ -294,6 +529,7 @@ export class MainGameScene extends Phaser.Scene {
     }
     this.physics.pause();
     this.pipeSpawnTimer.paused = true;
+    this.cloudSpawnTimer.paused = true;
     if (this.shoppy && this.shoppy.anims) this.shoppy.anims.pause();
     // pauseText and button text are already set by the initial pause attempt
     console.log('Full Pause Mechanics Applied');
@@ -363,7 +599,8 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     // Recycle pipes and scoring zones
-    const recycleThreshold = -PIPE_WIDTH - SCORE_ZONE_WIDTH; // Ensure zones are also off-screen
+    const headWidth = PIPE_WIDTH * PIPE_HEAD_WIDTH_MULTIPLIER;
+    const recycleThreshold = -(headWidth + SCORE_ZONE_WIDTH); // Ensure zones are also off-screen
 
     this.pipes.getChildren().forEach((pipe) => {
       const pipeSprite = pipe as Phaser.Physics.Arcade.Sprite;

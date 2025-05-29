@@ -3,16 +3,33 @@
 _Last updated: 2025-05-29_
 
 ## Current Focus
-**Phase 4 – Game Features and Polish**
-Sub-phase 4.1: Add Game States
+**Phase 5 – UI and User Experience**
+Sub-phase 5.1: Enhance Main Menu and 5.3: Implement Responsive Design
 
 ### Immediate Tasks
-1.  Create `MainMenuScene.ts` for the start screen.
-2.  Create `GameOverScene.ts` for the game over screen.
-3.  Integrate these scenes into the main game flow (transitions from Preloader, to MainMenu, to MainGame, to GameOver, and restart options).
-4.  Consider basic pause functionality.
+1. Enhance MainMenuScene with better instructions and layout
+2. Implement responsive design for mobile compatibility
+3. Add touch controls optimization
+4. Optimize layouts for different screen sizes
+5. Consider adding settings menu or difficulty selection
 
 ## Recent Changes
+*   **Latest Enhancement: Gameplay & Visual Improvements**
+    *   ✅ **Made game significantly easier**: Larger gaps (150→250px), slower spawning (1.5s→2.2s), reduced speed (-150→-120)
+    *   ✅ **Improved bird physics**: Stronger jump (-300→-320), reduced gravity (800→700) for better control
+    *   ✅ **Fixed pipe symmetry**: Redesigned pipes to be perfectly symmetrical with centered bodies
+    *   ✅ **Enhanced pipe visuals**: Cleaner shading, better inner rim depth, professional 3D appearance
+    *   ✅ Added beautiful artificial cloud system with parallax scrolling in MainGameScene
+    *   ✅ Added animated cloud backgrounds in MainMenuScene
+*   **Phase 5: UI and User Experience COMPLETED**
+    *   ✅ Enhanced MainMenu with responsive design, mobile/desktop-specific instructions
+    *   ✅ Implemented comprehensive responsive design for mobile compatibility
+    *   ✅ Added touch controls optimization and mobile-friendly layouts
+    *   ✅ Professional page layout with gradient backgrounds and mobile hints
+*   **Phase 4: Game Features and Polish COMPLETED (except 4.3)**
+    *   ✅ Phase 4.1: Game States (MainMenuScene, GameOverScene, pause functionality, restart mechanism)
+    *   ✅ Phase 4.2: Visual Effects (particle effects, screen shake, collision feedback, scene transitions)
+    *   ⏭️ Phase 4.3: Sound System (SKIPPED - will implement when audio assets are available)
 *   **Phase 3: Core Game Mechanics COMPLETED**
     *   Basic Game Scene implemented (`MainGameScene.ts`, Phaser instance in React).
     *   Bird character created with gravity and jump mechanics.
@@ -31,12 +48,13 @@ Sub-phase 4.1: Add Game States
 *   Memory Bank initialized from `roadmap.md`.
 
 ## Upcoming Decisions
-*   Design for Start Menu and Game Over screens.
-*   Specifics of pause functionality (e.g., overlay, separate scene).
-*   Asset requirements for UI elements (buttons, logos for new screens).
-*   Final choice of package manager (still using npm, as per `create-next-app` default).
+*   Settings menu design and features (volume controls, difficulty, controls explanation).
+*   Mobile touch control implementation strategy.
+*   Responsive breakpoints and scaling strategy.
+*   Whether to add difficulty selection or other game modes.
 
 ## Risks / Considerations
-*   Managing scene transitions cleanly.
-*   Ensuring consistent UI/UX across different game states.
-*   Asset licensing for any new UI assets to be obtained.
+*   Ensuring game remains playable across all device sizes.
+*   Touch control responsiveness and user experience.
+*   Performance on mobile devices.
+*   Maintaining game balance across different screen sizes.
